@@ -11,7 +11,7 @@ use std::convert::TryInto;
 
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "suduko-tree", about = "A complete Suduko board generator.")]
+#[structopt(name = "sudoku-tree", about = "A complete Sudoku board generator.")]
 struct Opt {
 
     /// Set num of boards

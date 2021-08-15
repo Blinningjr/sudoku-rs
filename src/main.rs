@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use structopt::StructOpt;
 
+use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::convert::TryInto;
@@ -20,9 +21,13 @@ use std::convert::TryInto;
 #[structopt(name = "sudoku-tree", about = "A complete Sudoku board generator.")]
 struct Opt {
 
+    /// Set Input file
+    #[structopt(short = "i", long = "input", parse(from_os_str))]
+    input: Option<PathBuf>,
+
     /// Set num of boards
-    #[structopt(short = "b", long = "boards", default_value = "1")]
-    boards: usize,
+    #[structopt(short = "b", long = "boards", required_if("input", "None"))]
+    boards: Option<usize>,
 
     /// Output file, stdout if not present
     #[structopt(parse(from_os_str))]
@@ -41,29 +46,13 @@ struct Opt {
 fn main() {
     let opt = Opt::from_args();
 
-    let mut tree = Tree::init();
-
-    println!("Generating Boards");
-    let num_boards = opt.boards;
-    let mut boards = vec!();
-
-    let mut pb = ProgressBar::new(num_boards.try_into().unwrap());
-    pb.format("╢▌▌░╟");
-
-    let mut to_keep: u32 = 1;
-    while 9_usize.pow(to_keep) < num_boards {
-        to_keep += 1;
-    }
-
-    for _i in 0..num_boards {
-        pb.inc();
-        match tree.next() {
-            Some(b) => boards.push(b),
-            None => break,
-        };
-        tree.pop(to_keep.try_into().unwrap());
-    }
-    pb.finish_print("Generation Complete");
+    let boards = match opt.input {
+        Some(input) => match solve_boards(input) {
+            Some(v) => v,
+            None => return,
+        },
+        None => generate_boards(&opt),
+    };
 
     if opt.out_type == "file" {
         let path = opt.output.unwrap().join(opt.file_name.unwrap() + ".json");
@@ -98,6 +87,79 @@ fn main() {
     }
 
     println!("Done");
+}
+
+
+fn solve_boards(input: PathBuf) -> Option<Vec<Board>> {
+    match fs::read(input) {
+        Ok(val) => {
+            let json_string =String::from_utf8_lossy(&val);
+            let boards: Vec<Board> = match serde_json::from_str(&json_string) {
+                Ok(val) => val,
+                Err(_) => {
+                    println!("Error: Could not deserialize input");
+                    return None;
+                },
+            };
+
+            println!("Generating Boards");
+            let num_boards = boards.len();
+            let mut pb = ProgressBar::new(num_boards.try_into().unwrap());
+            pb.format("╢▌▌░╟");
+
+            let mut solved = vec!();
+            for b in boards {
+                pb.inc();
+                solved.push(solve_board(b));
+            }
+            pb.finish_print("Generation Complete");
+
+            Some(solved)
+        },
+        Err(_) => {
+            println!("Error: Could not reading input file");
+            None
+        },
+    }
+}
+
+
+fn solve_board(board: Board) -> Board {
+    let mut tree = Tree::new(board.clone());
+
+    match tree.next() {
+        Some(b) => b,
+        None => board,
+    }
+}
+
+
+fn generate_boards(opt: &Opt) -> Vec<Board> {
+    let mut tree = Tree::init();
+
+    println!("Generating Boards");
+    let num_boards = opt.boards.unwrap();
+    let mut boards = vec!();
+
+    let mut pb = ProgressBar::new(num_boards.try_into().unwrap());
+    pb.format("╢▌▌░╟");
+
+    let mut to_keep: u32 = 1;
+    while 9_usize.pow(to_keep) < num_boards {
+        to_keep += 1;
+    }
+
+    for _i in 0..num_boards {
+        pb.inc();
+        match tree.next() {
+            Some(b) => boards.push(b),
+            None => break,
+        };
+        tree.pop(to_keep.try_into().unwrap());
+    }
+    pb.finish_print("Generation Complete");
+
+    boards
 }
 
 
@@ -224,6 +286,11 @@ impl Board {
 
     pub fn get_valid(&self, position: &Position) -> Vec<i8> {
         let mut valid = vec!();
+        if let Some(val) = self.board[position.row as usize][position.column as usize] {
+            valid.push(val);
+            return valid;
+        }
+
         for i in 1..10 {
             if self.valid_placement(position, i) {
                 valid.push(i);
@@ -233,7 +300,7 @@ impl Board {
         valid 
     }
 
-    
+
     pub fn valid_placement(&self, position: &Position, num: i8) -> bool {
         self.valid_row(position, num) && self.valid_column(position, num) && self.valid_box(position, num)
     }

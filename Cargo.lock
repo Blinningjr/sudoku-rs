@@ -245,7 +245,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sudoku-tree"
+name = "sudoku-rs"
 version = "0.1.0"
 dependencies = [
  "pbr",

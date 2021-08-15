@@ -18,7 +18,7 @@ use std::convert::TryInto;
 
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "sudoku-tree", about = "A complete Sudoku board generator.")]
+#[structopt(name = "sudoku-rs", about = "Sudoku solver and generator.")]
 struct Opt {
 
     /// Set Input file
@@ -68,7 +68,7 @@ fn main() {
         let json_string = match serde_json::to_string(&boards) {
             Ok(v) => v,
             Err(_) => {
-                println!("Error: Faild to serialize value");
+                println!("Error: Failed to serialize value");
                 return;
             }, 
         };
@@ -76,7 +76,7 @@ fn main() {
         match file.write_all(json_string.as_bytes()) {
             Ok(v) => v,
             Err(_) => {
-                println!("Error: Faild to write to file");
+                println!("Error: Failed to write to file");
                 return;
             },
         };
@@ -177,7 +177,7 @@ fn generate_solved_boards(num_boards: usize) -> Vec<Board> {
         };
         tree.pop(to_keep.try_into().unwrap());
     }
-    pb.finish_print("Generation of Solved Bordes Finished");
+    pb.finish_print("Generation of Solved Boards Finished");
 
     boards
 }

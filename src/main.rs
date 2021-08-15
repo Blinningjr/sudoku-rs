@@ -110,7 +110,10 @@ fn solve_boards(input: PathBuf) -> Option<Vec<Board>> {
             let mut solved = vec!();
             for b in boards {
                 pb.inc();
-                solved.push(solve_board(b));
+                solved.push(match solve_board(b.clone()) {
+                    Some(board) => board,
+                    None => b,
+                });
             }
             pb.finish_print("Generation Complete");
 
@@ -124,25 +127,39 @@ fn solve_boards(input: PathBuf) -> Option<Vec<Board>> {
 }
 
 
-fn solve_board(board: Board) -> Board {
+fn solve_board(board: Board) -> Option<Board> {
     let mut tree = Tree::new(board.clone());
-
-    match tree.next() {
-        Some(b) => b,
-        None => board,
-    }
+    tree.next_board()
 }
 
 
 fn generate_boards(opt: &Opt) -> Vec<Board> {
-    let mut tree = Tree::init();
 
-    println!("Generating Boards");
     let num_boards = opt.boards.unwrap();
-    let mut boards = vec!();
+    let complete_boards = generate_solved_boards(num_boards);
 
+    println!("Generating Solvable Boards");
     let mut pb = ProgressBar::new(num_boards.try_into().unwrap());
     pb.format("╢▌▌░╟");
+
+    let mut boards = vec!();
+    for cb in complete_boards {
+        pb.inc();
+        boards.push(generate_board(cb));
+    }
+    pb.finish_print("Generation of Solvable Boards Finished");
+
+    boards
+}
+
+
+fn generate_solved_boards(num_boards: usize) -> Vec<Board> {
+    println!("Generating Solved Boards");
+    let mut pb = ProgressBar::new(num_boards.try_into().unwrap());
+    pb.format("╢▌▌░╟");
+
+    let mut boards = vec!();
+    let mut tree = Tree::init();
 
     let mut to_keep: u32 = 1;
     while 9_usize.pow(to_keep) < num_boards {
@@ -151,15 +168,41 @@ fn generate_boards(opt: &Opt) -> Vec<Board> {
 
     for _i in 0..num_boards {
         pb.inc();
-        match tree.next() {
+        match tree.next_board() {
             Some(b) => boards.push(b),
-            None => break,
+            None => {
+                println!("Warning: Could not generate {} boards", num_boards);
+                break;
+            },
         };
         tree.pop(to_keep.try_into().unwrap());
     }
-    pb.finish_print("Generation Complete");
+    pb.finish_print("Generation of Solved Bordes Finished");
 
     boards
+}
+
+
+fn generate_board(init_board: Board) -> Board {
+    let mut all_positions = Position::get_all_positions();
+    all_positions.shuffle(&mut rand::thread_rng());
+
+    let mut board: Board = init_board;
+    while let Some(pos) = all_positions.pop() {
+        let new_board = board.new(&pos, None);
+        let mut tree = Tree::new(new_board.clone());
+        match tree.next_board() {
+            Some(_) => (),
+            None => panic!("No solution"),
+        };
+
+        match tree.next_board() {
+            Some(_) => (),
+            None => board = new_board,
+        };
+    } 
+
+    board
 }
 
 
@@ -181,27 +224,33 @@ impl Tree {
     }
 
 
-    pub fn next(&mut self) -> Option<Board> {
-        match self.tree.pop() {
-            Some(mut node) => {
-                let board = match node.next_board() {
-                   Some(board)  => board,
-                   None => return self.next(),
-                };
-
-                let new_position = match node.position.next() {
-                    Some(pos) => pos,
-                    None => {
-                        self.tree.push(node);
-                        return Some(board);
-                    },
-                };
-                self.tree.push(node);
-                self.tree.push(Node::new(board, new_position));
-                self.next()
-            },
-            None => None,
+    pub fn next_board(&mut self) -> Option<Board> {
+        while let Some(node) = self.tree.pop() {
+            match self.next_node(node) {
+                Some(board) => return Some(board),
+                None => continue,
+            };
         }
+        None
+    }
+
+
+    fn next_node(&mut self, mut node: Node) -> Option<Board> {
+        let board = match node.next_board() {
+           Some(board)  => board,
+           None => return None,
+        };
+
+        let new_position = match node.position.next() {
+            Some(pos) => pos,
+            None => {
+                self.tree.push(node);
+                return Some(board);
+            },
+        };
+        self.tree.push(node);
+        self.tree.push(Node::new(board, new_position));
+        None
     }
 
 
@@ -368,7 +417,7 @@ impl Board {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Position {
     pub column: i8,
     pub row: i8,
@@ -389,6 +438,18 @@ impl Position {
             (row, 8) => Some(Position { row: row+1, column: 0, }),
             (row, column) => Some(Position { row: row, column: column+1, }),
         }
+    }
+
+    pub fn get_all_positions() -> Vec<Position> {
+        // Generate all position and shuffle the vec
+        let mut all_positions = vec!();
+        let mut position = Position::init();
+        all_positions.push(position.clone());
+        while let Some(pos) = position.next() {
+            position = pos;
+            all_positions.push(position.clone());
+        }
+        all_positions
     }
 }
 

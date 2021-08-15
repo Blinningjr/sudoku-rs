@@ -1,3 +1,7 @@
+extern crate pbr;
+
+use pbr::ProgressBar;
+
 use rand::prelude::SliceRandom;
 
 use serde::{Deserialize, Serialize};
@@ -8,6 +12,8 @@ use structopt::StructOpt;
 use std::fs::File;
 use std::io::Write;
 use std::convert::TryInto;
+
+
 
 
 #[derive(Debug, StructOpt)]
@@ -31,6 +37,7 @@ struct Opt {
     file_name: Option<String>,
 }
 
+
 fn main() {
     let opt = Opt::from_args();
 
@@ -40,18 +47,23 @@ fn main() {
     let num_boards = opt.boards;
     let mut boards = vec!();
 
+    let mut pb = ProgressBar::new(num_boards.try_into().unwrap());
+    pb.format("╢▌▌░╟");
+
     let mut to_keep: u32 = 1;
-    while 9_usize.pow(to_keep)< num_boards {
+    while 9_usize.pow(to_keep) < num_boards {
         to_keep += 1;
     }
 
     for _i in 0..num_boards {
+        pb.inc();
         match tree.next() {
             Some(b) => boards.push(b),
             None => break,
         };
         tree.pop(to_keep.try_into().unwrap());
     }
+    pb.finish_print("Generation Complete");
 
     if opt.out_type == "file" {
         let path = opt.output.unwrap().join(opt.file_name.unwrap() + ".json");

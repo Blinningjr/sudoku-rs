@@ -1,6 +1,7 @@
-extern crate pbr;
+extern crate progress_bar_rs;
 
-use pbr::ProgressBar;
+
+use progress_bar_rs::ProgressBar;
 
 use rand::prelude::SliceRandom;
 
@@ -85,8 +86,6 @@ fn main() {
             println!("\n{}", b.print());
         }
     }
-
-    println!("Done");
 }
 
 
@@ -102,20 +101,19 @@ fn solve_boards(input: PathBuf) -> Option<Vec<Board>> {
                 },
             };
 
-            println!("Generating Boards");
             let num_boards = boards.len();
-            let mut pb = ProgressBar::new(num_boards.try_into().unwrap());
-            pb.format("╢▌▌░╟");
+            let mut pb = ProgressBar::new("Generating Boards".to_string(), num_boards.try_into().unwrap());
+            pb.length = 50;
 
             let mut solved = vec!();
             for b in boards {
-                pb.inc();
+                pb.increase();
                 solved.push(match solve_board(b.clone()) {
                     Some(board) => board,
                     None => b,
                 });
             }
-            pb.finish_print("Generation Complete");
+            pb.finished();
 
             Some(solved)
         },
@@ -138,25 +136,23 @@ fn generate_boards(opt: &Opt) -> Vec<Board> {
     let num_boards = opt.boards.unwrap();
     let complete_boards = generate_solved_boards(num_boards);
 
-    println!("Generating Solvable Boards");
-    let mut pb = ProgressBar::new(num_boards.try_into().unwrap());
-    pb.format("╢▌▌░╟");
+    let mut pb = ProgressBar::new("Generating Solvable Boards".to_string(), num_boards.try_into().unwrap());
+    pb.length = 50;
 
     let mut boards = vec!();
     for cb in complete_boards {
-        pb.inc();
+        pb.increase();
         boards.push(generate_board(cb));
     }
-    pb.finish_print("Generation of Solvable Boards Finished");
+    pb.finished();
 
     boards
 }
 
 
 fn generate_solved_boards(num_boards: usize) -> Vec<Board> {
-    println!("Generating Solved Boards");
-    let mut pb = ProgressBar::new(num_boards.try_into().unwrap());
-    pb.format("╢▌▌░╟");
+    let mut pb = ProgressBar::new("Generating Solved Boards".to_string(), num_boards.try_into().unwrap());
+    pb.length = 50;
 
     let mut boards = vec!();
     let mut tree = Tree::init();
@@ -167,7 +163,7 @@ fn generate_solved_boards(num_boards: usize) -> Vec<Board> {
     }
 
     for _i in 0..num_boards {
-        pb.inc();
+        pb.increase();
         match tree.next_board() {
             Some(b) => boards.push(b),
             None => {
@@ -177,7 +173,7 @@ fn generate_solved_boards(num_boards: usize) -> Vec<Board> {
         };
         tree.pop(to_keep.try_into().unwrap());
     }
-    pb.finish_print("Generation of Solved Boards Finished");
+    pb.finished();
 
     boards
 }
